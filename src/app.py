@@ -27,7 +27,8 @@ def loadSettings():
     con = sqlite3.connect(DATA_DB_PATH)
     cur = con.cursor()
     cur.execute('SELECT value FROM state WHERE name = ?;', ["settings"])
-    settingsFetched = cur.fetchone()[0]
+    res = cur.fetchone()
+    settingsFetched = res[0] if res is not None else None
     con.close()
     if settingsFetched is not None:
         settings = pickle.loads(settingsFetched)
@@ -103,14 +104,15 @@ class Box(QCheckBox):
     def __init__(self, themeId, colId):
         super().__init__()
         self.setTristate(True)
-        columnThemeData = loadCol(colId)[2]
-        if str(themeId) not in columnThemeData.keys():
-            self.setCheckState(Qt.Unchecked)
-        else:
-            self.setCheckState(columnThemeData[str(themeId)])
-        self.stateChanged.connect(self.storeNewState)
         self._colId = colId
         self._themeId = themeId
+        self.stateChanged.connect(self.storeNewState)
+
+        columnThemeData = loadCol(self._colId)[2]
+        if str(self._themeId) not in columnThemeData.keys():
+            self.setCheckState(Qt.Unchecked)
+        else:
+            self.setCheckState(columnThemeData[str(self._themeId)])
 
     def setCol(self, colId):
         self._colId = colId
@@ -193,6 +195,8 @@ class ColNameRow(QWidget):
         layout = QHBoxLayout()
         self.setLayout(layout)
 
+        self._position = position
+
         themeWidth = 156
         self._topRowSpacer = QSpacerItem(themeWidth, 12)
         layout.insertSpacerItem(0, self._topRowSpacer)
@@ -201,7 +205,7 @@ class ColNameRow(QWidget):
 
         for i in range(settings["colDisplayStart"],
         settings["colDisplayStart"]+settings["colDisplayNum"]):
-            colNameBox = ColNameBox(i, position)
+            colNameBox = ColNameBox(i, self._position)
             layout.addWidget(colNameBox)
             self._cols.append(colNameBox)
 
@@ -212,10 +216,14 @@ class MainWindow(QWidget):
         self.setWindowTitle("Digital Theme System Journal")
         self._flo = QFormLayout()
         self.setLayout(self._flo)
-        self._flo.addRow("", ColNameRow("T"))
-        self._flo.addRow("", ColNameRow("B"))
+        self._themRows = []
 
         loadSettings()
+
+        self._colNameRowTop = ColNameRow("T")
+        self._flo.addRow("", self._colNameRowTop)
+        self._colNameRowBottom = ColNameRow("B")
+        self._flo.addRow("", self._colNameRowBottom)
 
         if len(settings["themesDisplayed"]) == 0:
             for itemNum in range(7):
@@ -229,16 +237,21 @@ class MainWindow(QWidget):
     def addRow(self, location=-1, themeId=-1):
         if location == -1:
             row = self._flo.rowCount()
-            self._flo.addRow("", ThemeRow(f"Item {row-1}",themeId=themeId))
+            themeRow = ThemeRow(f"Item {row-1}",themeId=themeId)
+            self._flo.addRow("", themeRow)
         else:
             row = location + 2
-            self._flo.insertRow(row, "", ThemeRow(f"Item {row-1}",themeId=themeId))
+            themeRow = ThemeRow(f"Item {row-1}",themeId=themeId)
+            self._flo.insertRow(row, "", themeRow)
+        self._themRows.append(themeRow)
 
     def rmRow(self, location=-1):
         if location == -1:
             row = self._flo.rowCount() - 1
+            self._themRows.pop(row -2)
         else:
             row = location + 2
+            self._themRows.pop(location)
         self._flo.removeRow(row)
 
 app = QApplication(sys.argv)
