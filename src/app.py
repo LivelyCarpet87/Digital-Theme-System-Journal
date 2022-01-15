@@ -3,8 +3,8 @@ import secrets
 import sqlite3
 import json
 import pickle
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QFormLayout, QLineEdit, QGridLayout, QCheckBox, QHBoxLayout, QSpacerItem
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QFormLayout, QLineEdit, QGridLayout, QCheckBox, QHBoxLayout, QSpacerItem, QMenu, QAction
 
 settings = {}
 settings["colDisplayStart"] = 0
@@ -116,6 +116,11 @@ class Box(QCheckBox):
 
     def setCol(self, colId):
         self._colId = colId
+        columnThemeData = loadCol(self._colId)[2]
+        if str(self._themeId) not in columnThemeData.keys():
+            self.setCheckState(Qt.Unchecked)
+        else:
+            self.setCheckState(columnThemeData[str(self._themeId)])
 
     def storeNewState(self):
         box = {}
@@ -144,12 +149,31 @@ class ThemeRow(QWidget):
         layout.addWidget(self._themeName)
         self._themeName.editingFinished.connect(self.updateThemeRowName)
 
+        self.insertAboveAction = QAction(self)
+        self.insertAboveAction.setText("Insert Theme Above")
+        self.insertAboveAction.triggered.connect(self.insertAbove)
+        self.insertBelowAction = QAction(self)
+        self.insertBelowAction.setText("Insert Theme Below")
+        self.insertBelowAction.triggered.connect(self.insertBelow)
+
+        self.shiftUpAction = QAction(self)
+        self.shiftUpAction.setText("Shift Theme Up")
+        self.shiftUpAction.triggered.connect(self.shiftUp)
+        self.shiftDownAction = QAction(self)
+        self.shiftDownAction.setText("Shift Theme Down")
+        self.shiftDownAction.triggered.connect(self.shiftDown)
+
+        self.deleteThemeAction = QAction(self)
+        self.deleteThemeAction.setText("Delete Theme")
+        self.deleteThemeAction.triggered.connect(self.deleteTheme)
+
         self._boxes = []
         for i in range(settings["colDisplayStart"],
         settings["colDisplayStart"]+settings["colDisplayNum"]):
             box = Box(self._themeId, i)
             self._boxes.append(box)
             layout.addWidget(box)
+
         if themeId == -1:
             saveThemeChanges(self._themeId,  themeName=themeName)
             settings["themesDisplayed"].append(self._themeId)
@@ -159,9 +183,66 @@ class ThemeRow(QWidget):
             self._themeName.clear()
             self._themeName.setText(theme[1])
 
+        self.optionsButton = QPushButton(self)
+        self.optionsButton.setText("Options")          #text
+        self.optionsButton.clicked.connect(self.optionsButtonPressed)
+        layout.addWidget(self.optionsButton)
+
+        self.statsButton = QPushButton(self)
+        self.statsButton.setText("Stats")          #text
+        self.statsButton.clicked.connect(self.statsButtonPressed)
+        layout.addWidget(self.statsButton)
+
     def updateThemeRowName(self):
         newName = self._themeName.text()
         saveThemeChanges(self._themeId, themeName=newName)
+
+    def refreshColumns(self):
+        i = 0
+        for box in self._boxes:
+            box.setCol(settings["colDisplayStart"]+i)
+            i += 1
+
+    def optionsButtonPressed(self):
+        self.createMenu(center=self.optionsButton).exec(self.optionsButton.mapToGlobal(QPoint(0,0)))
+
+    def statsButtonPressed(self):
+        pass
+
+    def createMenu(self, center=None):
+        if center == None:
+            menu = QMenu()
+        else:
+            menu = QMenu(center)
+
+        separator1 = QAction(self)
+        separator1.setSeparator(True)
+        separator2 = QAction(self)
+        separator2.setSeparator(True)
+        # Populating the menu with actions
+        menu.addAction(self.insertAboveAction)
+        menu.addAction(self.insertBelowAction)
+        menu.addAction(separator1)
+        menu.addAction(self.shiftUpAction)
+        menu.addAction(self.shiftDownAction)
+        menu.addAction(separator2)
+        menu.addAction(self.deleteThemeAction)
+        return menu
+
+    def insertAbove(self):
+        pass
+
+    def insertBelow(self):
+        pass
+
+    def shiftUp(self):
+        pass
+
+    def shiftDown(self):
+        pass
+
+    def deleteTheme(self):
+        pass
 
 class ColNameBox(QLineEdit):
 
@@ -188,6 +269,13 @@ class ColNameBox(QLineEdit):
         else:
             saveColChanges(self._colId, nameBottom=newName)
 
+    def setCol(self, colId):
+        self._colId = colId
+        if self._position == 'T':
+            self.setText(loadCol(colId)[0])
+        else:
+            self.setText(loadCol(colId)[1])
+
 class ColNameRow(QWidget):
 
     def __init__(self, position):
@@ -208,6 +296,63 @@ class ColNameRow(QWidget):
             colNameBox = ColNameBox(i, self._position)
             layout.addWidget(colNameBox)
             self._cols.append(colNameBox)
+
+        if self._position == "T":
+            self.backOneButton = QPushButton(self)
+            self.backOneButton.setText("B1")
+            self.backOneButton.clicked.connect(self.backOne)
+            layout.addWidget(self.backOneButton)
+
+            self.fowardOneButton = QPushButton(self)
+            self.fowardOneButton.setText("F1")
+            self.fowardOneButton.clicked.connect(self.fowardOne)
+            layout.addWidget(self.fowardOneButton)
+        else:
+            self.backSevenButton = QPushButton(self)
+            self.backSevenButton.setText("B7")
+            self.backSevenButton.clicked.connect(self.backSeven)
+            layout.addWidget(self.backSevenButton)
+
+            self.fowardSevenButton = QPushButton(self)
+            self.fowardSevenButton.setText("F7")
+            self.fowardSevenButton.clicked.connect(self.fowardSeven)
+            layout.addWidget(self.fowardSevenButton)
+
+    def refreshColumns(self):
+        i = 0
+        for colNameBox in self._cols:
+            colNameBox.setCol(settings["colDisplayStart"]+i)
+            i += 1
+
+    def fowardOne(self, event):
+        global settings
+        settings["colDisplayStart"] += 1
+        saveSettings()
+        window.refreshColumns()
+
+    def backOne(self, event):
+        global settings
+        if settings["colDisplayStart"] > 0:
+            settings["colDisplayStart"] -= 1
+            saveSettings()
+            window.refreshColumns()
+        else:
+            return
+
+    def fowardSeven(self, event):
+        global settings
+        settings["colDisplayStart"] += 7
+        saveSettings()
+        window.refreshColumns()
+
+    def backSeven(self, event):
+        global settings
+        if settings["colDisplayStart"] >= 7:
+            settings["colDisplayStart"] -= 7
+            saveSettings()
+            window.refreshColumns()
+        else:
+            return
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -253,6 +398,12 @@ class MainWindow(QWidget):
             row = location + 2
             self._themRows.pop(location)
         self._flo.removeRow(row)
+
+    def refreshColumns(self):
+        self._colNameRowTop.refreshColumns()
+        self._colNameRowBottom.refreshColumns()
+        for row in self._themRows:
+            row.refreshColumns()
 
 app = QApplication(sys.argv)
 
