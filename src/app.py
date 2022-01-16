@@ -99,6 +99,34 @@ def loadCol(colId):
     else:
         return ("","",{})
 
+def deleteTheme(themeId):
+    con = sqlite3.connect(DATA_DB_PATH)
+    cur = con.cursor()
+    cur.execute('DELETE FROM themes WHERE themeId = ?;', [themeId])
+    con.commit()
+    con.close()
+
+    con = sqlite3.connect(DATA_DB_PATH)
+    cur = con.cursor()
+    cur.execute('SELECT * FROM columns;')
+    cols = cur.fetchall()
+    con.close()
+
+    for cold in cols:
+        colId = cold[0]
+        colThemeDataTxt = cold[3]
+        if colThemeDataTxt is not None:
+            colThemeData = json.loads(colThemeDataTxt)
+            if str(themeId) in colThemeData.keys():
+                del(colThemeData[str(themeId)])
+                colThemeDataTxt = json.dumps(colThemeData)
+                con = sqlite3.connect(DATA_DB_PATH)
+                cur = con.cursor()
+                cur.execute('INSERT INTO columns (colId, themeData) VALUES (?, ?) ON CONFLICT(colId) DO UPDATE SET themeData=excluded.themeData;', [colId, colThemeDataTxt])
+                con.commit()
+                con.close()
+
+
 class Box(QCheckBox):
 
     def __init__(self, themeId, colId):
@@ -246,7 +274,8 @@ class ThemeRow(QWidget):
         window.hideThemeRow(self._rowNum)
 
     def deleteTheme(self):
-        pass
+        window.hideThemeRow(self._rowNum)
+        deleteTheme(self._themeId)
 
 class ColNameBox(QLineEdit):
 
