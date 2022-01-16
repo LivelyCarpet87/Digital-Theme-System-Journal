@@ -401,7 +401,9 @@ class MainWindow(QWidget):
             row = self._flo.rowCount() - 1
         else:
             row = location + 2
-        print("RM", row)
+        print("RM", row,self._flo.rowCount())
+        if self._flo.itemAt(row) is None:
+            print("No item to take")
         self._flo.takeRow(row)
         self._themeRows.pop(location)
 
@@ -427,6 +429,8 @@ class MainWindow(QWidget):
         self.updateRowIndexes()
 
     def hideThemeRow(self, rowNum):
+        global settings
+        settings["themesDisplayed"].pop(rowNum)
         self.rmRow(rowNum)
         saveSettings()
         self.updateRowIndexes()
