@@ -1,0 +1,13 @@
+Swap back and forward buttons with icons
+Populate optionsButton menu with actual functions [x]
+- insert hidden option window
+- add new theme [x]
+- shift [\]
+- hide [\]
+- delete [x]
+Make boxes right-click to show option to set as startDate/endDate
+Add stats window
+--------------------------
+Add other page sections
+- Long Term Planning Page
+- Daily Log Page
