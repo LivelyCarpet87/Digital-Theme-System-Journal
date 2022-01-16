@@ -133,6 +133,7 @@ class ThemeRow(QWidget):
     def __init__(self, themeName, themeId = -1):
         global settings
         super().__init__()
+        self._rowNum = -1
 
         if themeId == -1:
             self._themeId = secrets.randbelow(99999)
@@ -149,12 +150,9 @@ class ThemeRow(QWidget):
         layout.addWidget(self._themeName)
         self._themeName.editingFinished.connect(self.updateThemeRowName)
 
-        self.insertAboveAction = QAction(self)
-        self.insertAboveAction.setText("Insert Theme Above")
-        self.insertAboveAction.triggered.connect(self.insertAbove)
-        self.insertBelowAction = QAction(self)
-        self.insertBelowAction.setText("Insert Theme Below")
-        self.insertBelowAction.triggered.connect(self.insertBelow)
+        self.newRowAction = QAction(self)
+        self.newRowAction.setText("Create New Theme")
+        self.newRowAction.triggered.connect(self.newRow)
 
         self.shiftUpAction = QAction(self)
         self.shiftUpAction.setText("Shift Theme Up")
@@ -163,6 +161,9 @@ class ThemeRow(QWidget):
         self.shiftDownAction.setText("Shift Theme Down")
         self.shiftDownAction.triggered.connect(self.shiftDown)
 
+        self.hideThemeAction = QAction(self)
+        self.hideThemeAction.setText("Hide Theme")
+        self.hideThemeAction.triggered.connect(self.hideTheme)
         self.deleteThemeAction = QAction(self)
         self.deleteThemeAction.setText("Delete Theme")
         self.deleteThemeAction.triggered.connect(self.deleteTheme)
@@ -203,6 +204,9 @@ class ThemeRow(QWidget):
             box.setCol(settings["colDisplayStart"]+i)
             i += 1
 
+    def setRowNum(self, i):
+        self._rowNum = i
+
     def optionsButtonPressed(self):
         self.createMenu(center=self.optionsButton).exec(self.optionsButton.mapToGlobal(QPoint(0,0)))
 
@@ -220,26 +224,26 @@ class ThemeRow(QWidget):
         separator2 = QAction(self)
         separator2.setSeparator(True)
         # Populating the menu with actions
-        menu.addAction(self.insertAboveAction)
-        menu.addAction(self.insertBelowAction)
+        menu.addAction(self.newRowAction)
         menu.addAction(separator1)
-        menu.addAction(self.shiftUpAction)
+        #menu.addAction(self.shiftUpAction)
         menu.addAction(self.shiftDownAction)
         menu.addAction(separator2)
+        menu.addAction(self.hideThemeAction)
         menu.addAction(self.deleteThemeAction)
         return menu
 
-    def insertAbove(self):
-        pass
-
-    def insertBelow(self):
-        pass
+    def newRow(self):
+        window.newRow()
 
     def shiftUp(self):
-        pass
+        window.shiftRow(self._rowNum, -1)
 
     def shiftDown(self):
-        pass
+        window.shiftRow(self._rowNum, 1)
+
+    def hideTheme(self):
+        window.hideThemeRow(self._rowNum)
 
     def deleteTheme(self):
         pass
@@ -361,7 +365,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("Digital Theme System Journal")
         self._flo = QFormLayout()
         self.setLayout(self._flo)
-        self._themRows = []
+        self._themeRows = []
 
         loadSettings()
 
@@ -376,7 +380,7 @@ class MainWindow(QWidget):
         else:
             for themeId in settings["themesDisplayed"]:
                 self.addRow(themeId=themeId)
-
+        self.updateRowIndexes()
         saveSettings()
 
     def addRow(self, location=-1, themeId=-1):
@@ -384,26 +388,60 @@ class MainWindow(QWidget):
             row = self._flo.rowCount()
             themeRow = ThemeRow(f"Item {row-1}",themeId=themeId)
             self._flo.addRow("", themeRow)
+            self._themeRows.append(themeRow)
         else:
             row = location + 2
             themeRow = ThemeRow(f"Item {row-1}",themeId=themeId)
             self._flo.insertRow(row, "", themeRow)
-        self._themRows.append(themeRow)
+            print("INSRT", row)
+            self._themeRows.insert(location, themeRow)
 
     def rmRow(self, location=-1):
         if location == -1:
             row = self._flo.rowCount() - 1
-            self._themRows.pop(row -2)
         else:
             row = location + 2
-            self._themRows.pop(location)
-        self._flo.removeRow(row)
+        print("RM", row)
+        self._flo.takeRow(row)
+        self._themeRows.pop(location)
+
+    def shiftRow(self, row, direction):
+        global settings
+        if row < 0 or row >= self._flo.rowCount()-2:
+            print("Invalid shift")
+            return
+        if (row+direction) < 0 or (row+direction) >= self._flo.rowCount()-2:
+            print("Invalid shift")
+            return
+        print(row, direction)
+        themeId = settings["themesDisplayed"].pop(row)
+        settings["themesDisplayed"].insert(row+direction, themeId)
+        self.rmRow(row)
+        self.addRow(location=row+direction, themeId=themeId)
+        saveSettings()
+        self.updateRowIndexes()
+
+    def newRow(self):
+        self.addRow()
+        saveSettings()
+        self.updateRowIndexes()
+
+    def hideThemeRow(self, rowNum):
+        self.rmRow(rowNum)
+        saveSettings()
+        self.updateRowIndexes()
 
     def refreshColumns(self):
         self._colNameRowTop.refreshColumns()
         self._colNameRowBottom.refreshColumns()
-        for row in self._themRows:
+        for row in self._themeRows:
             row.refreshColumns()
+
+    def updateRowIndexes(self):
+        i = 0
+        for themeRow in self._themeRows:
+            themeRow.setRowNum(i)
+            i+= 1
 
 app = QApplication(sys.argv)
 
