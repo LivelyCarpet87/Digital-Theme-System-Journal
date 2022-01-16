@@ -392,6 +392,7 @@ class MainWindow(QWidget):
         super().__init__()
 
         self.setWindowTitle("Digital Theme System Journal")
+        self.setFixedWidth(1350)
         self._flo = QFormLayout()
         self.setLayout(self._flo)
         self._themeRows = []
